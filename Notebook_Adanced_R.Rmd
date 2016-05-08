@@ -1,0 +1,602 @@
+---
+title: "Notebook_Advanced R" 
+date: "`r Sys.Date()`"
+author: "Ru JIA"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    highlight: pygments
+    theme: cerulean
+    number_sections: true
+---
+<!--
+=================================================
+default 基本款，黑白
+spacelab  正文灰色
+cerulean  title蓝色
+flatly  代码块底色为浅蓝
+united  toc红色，但正文和标题字体不太好
+cosmo 正常
+lumen 正常
+simplex 红色，但字体太小,字灰色
+yeti
+=================================================
+default
+pygments
+tango  pdf默认主题，蓝绿棕
+=================================================
+-->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval=FALSE, results="markup",
+	             cache=TRUE, prompt=FALSE,
+               tidy=FALSE, comment=NA,
+               message=T, warning=T, error = T)
+
+
+```
+
+
+# Chapter 1 Introduction
+- Online html document: <http://adv-r.had.co.nz/>
+- understand why R works the way it does.
+- Be familiar with the fundamentals of R, so that you can understand complex data types and simplify the operations performed on them. 
+- Understand what functional programming means, and why it is useful tool for data analysis.
+- Appreciate the double-edged sword of metaprogramming.
+- Have a good intuition for what operations in R are slow, or use a lot of memory. 
+
+
+# Chapter 2 Data structures
+
+|    | Homogeneous   | Heterogeneous | 
+|----|---------------|---------------|
+| 1d | Atomic Vector | List          |
+| 2d | Matrix        | Data frame    |
+| nd | Array         |               |
+
+Note: R has no scalar, or 0-dimensional, types. All scalar (single numbers or strings) are length-one vectors.
+
+- OO field guide
+- functions, including closures and promises
+- environments
+- names/symbols, calls and expression objects, for metaprogramming
+
+## Quiz
+
+```
+• What are the three properties of a vector? (apart from its contents)
+• What are the four common types of atomic vector? What are the two
+rarer types?
+• What are attributes? How do you get and set them?
+• How is a list different to a vector?
+• How is a matrix different to a data frame?
+• Can you have a list that is a matrix?
+• Can a data frame have a column that is a list?
+```
+
+## Vectors
+
+- `atomic vectors`: The contents must be the same type
+- `list`: the comtents of which can have different types
+
+Three properties of vectors:
+
+- `typeof()`  what it is
+- `length()`  how long it is
+- `attributes()`  additional arbitrary metadata; the most common `attribute` is `names()`
+
+For historical reason `is.vector()` returns TRUE only if the object is a vector with no attributes apart from names. Use `is.atomic(x) || is.list(x)` to test if an object is actually a vector
+
+** list is also vector!**
+```{r, results='hide'}
+a <- list("ABC", 1, TRUE)
+b <- c(1,2,3)
+
+is.vector(a) # TRUE.  list is also vector!
+is.vector(b)
+is.atomic(a); is.atomic(b)
+is.list(a); is.list(b)
+```
+
+### Atomic vectors
+Atomic vectors can be logical, integer, double(numeric), or character, or less commonly comples or raw. Atomic vectors are usually created with `c()`
+
+Note! these two are the same:
+```{r}
+a <- c(1, c(2, c(3,4)))
+b <- c(1,2,3,4)
+identical(a,b)  # TRUE
+```
+
+#### Types and tests
+
+`typeof()`, or with a specific test: `is.character()`, `is.double()`, `is.integer()`, `is.logical()`, or, more generally, `is.atomic()`.
+Note: `is.numeric()` returns TRUE for integers or doubles
+
+
+#### Coercion
+Atomic vector can only be of one type, so when you attempt to `c()` different types, they will be coerced into one type. When logical is coerced to double or integer, `TRUE` becomes `1` and `FALSE` become `0`. It's useful in conjunction with `sum()` and `mean()`
+```{r}
+c("a",1)  # num 1 ==>> chr "1"
+as.numeric(c(1,"a")) # warning: 强制改变过程中产生了NA
+sum(mtcars$cyl == 4) # Number of TRUEs
+mean(mtcars$cyl == 4) # Proportion of TRUEs
+```
+
+Manually force ontype of vector to anothe using coercion function: `as.characger()`, `as.double()`, `as.integer()`, `as.logical()`. Coercion often happens automatically in math funciton or logical operations. If lose information you will get information(eg. 强制改变过程中产生了NA/NaN)
+
+### Lists
+Construct list using `list()` instead of `c()`
+
+```{r, eval=T}
+x <- list(name1= 1:3, name2= "a", name3=c(T, F, T), name4=c(2.3, T), name5=c(1L,2L), name6=c(2.5,9.1), name7=list(subname1=1:5L,subname2="AAA"))
+str(x)
+```
+
+The `typeof()` a list is `"list"`, you can test for a list with `is.list()` and coerce to a list with `as.list()`. 
+
+`unlist(x, recursive=TRUE, use.names=TRUE)` turn a list back into an atomic vector, uses the same implicit coercion rules as for c().
+
+List are used to build up many of more complicated data structures in R: e.g data.frames and linear models ( produced by `lm()`)
+
+```{r}
+is.list(mtcars) # TRUE. data.frame IS list !
+names(mtcars)  # a chr vector of col 
+
+mod <- lm(mpg ~ wt, data=mtcars)
+is.list(mod) # TRUE
+names(mod) 
+
+```
+
+**Why?**
+```{r}
+c(list(1,2), "a")  # return a list of 3
+c(list(1,2), list("a","b"))  # return a list of 4
+1 == "1"  # TRUE
+is.logical(NA)  #TRUE
+```
+
+
+
+## Attributes
+
+All objects can have arbitrary additional attributes. These can be thought of as a named list (with unique names). `attr()` and `attribute()`.
+
+**Usage: add notes to a data.frame !**
+```{r}
+DF <- data.frame(ID=1:5, math=rnorm(5, 70, 10))
+attributes(DF)
+attr(DF,"Notes") <- "This is a data frame of students's math scores"
+attr(DF, "BuiltDate") <- Sys.Date()
+attributes(DF)
+```
+
+`struture()` fuction:
+
+```{r}
+a <- structure(1:6, dim=c(2,3))
+str(a) 
+# int [1:2, 1:3] 1 2 3 4 5 6
+attributes(a)  
+# $dim 
+# [1] 2 3
+```
+
+the most common attributes
+
+- `names()`, character vector of element names
+- `class()`, used to implement the S3 object system, described in the next
+section
+- `dim()`, used to turn vectors into high-dimensional structures
+
+use names(x), class(x) and dim(x), not attr(x, "names"), attr(x, "class"), and attr(x, "dim"). ???
+
+### names
+
+```{r}
+# c() 也可以像list()一样有names,可以用等号： c(name=content,...)
+x <- c(A="a", B="b"); x
+str(x) # Named chr [1:2] ...
+attr(x, "names") # [1] "A" "B"
+# or
+x <- 1:3
+names(x) <- c("A", "B", "C")
+
+# If some names are missing, names() will return an empty string for those elements; if all names are missing names() will return NULL.
+y <- c(a=1, 2, 3)
+names(y)
+# [1] "a" ""  "" 
+
+z <- c(1,2,3)
+names(z)
+# NULL
+
+# delete the names of a vector
+names(y) <- NULL
+```
+
+### factor
+factor have two key attributes: `class`("factor") and `levels()`
+
+While factors look/often behave like character vectors, they are actually **integers** under the hood. Some string methods (like gsub() or grepl()) will coerce factors to strings, while others (like nchar()) will throw an error, and still others will use the underlying integers id (like c()). 
+
+```{r}
+sex <- factor(c("m", "m", "m", "f"), levels = c("m", "f"))
+class(sex)
+levels(sex)
+
+z <- factor(c(12, 1, 9))
+as.numeric(z)
+# [1] 3 1 2
+as.numeric(as.character(z))
+# [1] 12  1  9
+```
+
+
+
+## Matrix & Arrays
+
+**dimension attribute can also be set on lists to make a list-matrix or list-array**
+```{r}
+
+l <- list(1:5, "a", TRUE, 2.5, c(TRUE, 2.5), list(1,2,3))
+dim(l) <- c(2,3)
+l
+#      [,1]      [,2] [,3]     
+# [1,] Integer,5 TRUE Numeric,2
+# [2,] "a"       2.5  List,3   
+```
+
+
+## Data.frame
+
+`length(DF)` is `ncol(DF)`, not `nrow(DF)`.
+
+It is possible for data.frame to have a column that is a list:
+```{r}
+df <- data.frame(x = LETTERS[1:3])
+df$y <- list(1:2, 1:3, 1:5)
+df
+#   x             y
+# 1 A          1, 2
+# 2 B       1, 2, 3
+# 3 C 1, 2, 3, 4, 5
+```
+However, when a list is given to data.frame, it tries to **put each item of the list into one column**, so it fails:
+```{r}
+data.frame(x = LETTERS[1:3], y = list(1:2, 1:3, 1:4))
+# Error in data.frame(1:2, 1:3, 1:4, check.names = FALSE, stringsAsFactors = TRUE) : 
+#   参数值意味着不同的行数: 2, 3, 4
+```
+Solution: use `I()` which causes data.frame to treat the list as one unit:
+```{r}
+data.frame(x = LETTERS[1:3], y = I(list(1:2, 1:3, 1:4)))
+#   x          y
+# 1 A       1, 2
+# 2 B    1, 2, 3
+# 3 C 1, 2, 3, 4
+```
+
+
+
+
+# Chapter 3 Subsetting
+
+
+## Quiz
+1. What is the result of subsetting a vector with positive integers, negative integers, a logical vector, or a character vector?
+2. What’s the difference between `[`, `[[`, and `$` when applied to a list?
+3. When should you use drop = FALSE?
+4. If x is a matrix, what does `x[] <- 0` do? How is it different to `x <- 0`?
+5. How can you use a named vector to relabel categorical variables?
+
+## Data types
+
+
+### Atomic vectors
+
+```{r}
+x <- c(2.1, 4.2, 3.3, 5.4)  # 小数点后的数字代表原始位置
+
+# negative index, omit elements at the position:
+x[-c(3,1)]  # 负号代表“除了3和1位置上的”
+
+# if a logical vector is shorter than, it will be recycled to be the same length:
+x[c(T,F)]  # 奇数位置上的
+
+# A missing value in the index always yields a missing value in the out put:
+x[c(T, T, NA, F)]
+# [1] 2.1 4.2  NA
+
+# returns a zero-length vector
+x[0]
+# numeric(0)
+```
+
+
+### Lists
+Using `[` will always return a list; `[[` and `$` pull out the components of the list.
+
+```{r}
+y <- list(1:3, LETTERS[1:3], c(T, F, T))
+
+str(y[1]) # a list of 1
+str(y[2:3])  # a list of 2
+str(y[[1]]) #  int [1:3] 1 2 3
+
+```
+
+### Matrix & Array
+subset higher-dimentsional structures in 3 ways:
+
+- with multiple-vectors. `x[i,j]`
+- with single vector. `x[n]`. Because **matrix and array are implemented as vectors with special attributes**, you can also subset them with a single vector
+- with a matrix. `x[select_matrix]`
+
+```{r}
+vals <- outer(1:5, 1:5, FUN = "paste", sep = ","); vals
+
+# 1. x[i,j]
+vals[c(1,2,3), c(4,5)]
+
+# 2. x[n] 注意是按列数的
+vals[c(4,10,16,21,25)]
+
+# 3. x[select_matrix]
+select_m <- matrix(c(1,1,
+                     3,1,
+                     2,4), ncol = 2, byrow = TRUE)
+vals[select_m]
+# [1] "1,1" "3,1" "2,4"
+# 相当于3个vals[i,j], select_m的每一行是一组[i,j]
+```
+
+### Data frames
+
+```{r}
+df <- data.frame(x = 1:5, y = rnorm(5), z = LETTERS[1:5])
+
+str(df[[2]]); str(df$y); str(df[,2])
+# num [1:5] 0.905 0.101 -0.577 0.042 -0.914
+
+str(df[2])
+# 'data.frame':	5 obs. of  1 variable:
+#  $ y: num  0.905 0.101 -0.577 0.042 -0.914
+```
+
+### S3 objects vs S4 objects
+
+S3 objects are made up of atomic vectors, arrays, and lists, so you can always pull apart an S3 object using the techniques described above and the knowledge you gain from `str()`.
+
+There are also two additional subsetting operators that are needed for S4 objects: `@` (equivalent to `$`), and `slot()` (equivalent to `[[`). `@` is more restrictive than `$` in that it will return an error if the slot does not exist. These are described in more detail in the *OO field guide*.
+
+
+### Exercise
+Why?
+```{r}
+x <- 1:5
+x[NA]
+x[NA_real_]
+```
+
+
+## Subsetting Operators
+
+`[` always retrun to a list while `[[` returns the **content** of the list. Because `[[` only return a single value, you must use `[[` with either a single positive integer or a string.  `$` is a useful shorthand for `[[` combined with character subsetting.
+
+**If you do supply a vector to `[[`, it indexes recursively:**
+```{r}
+x <- list(a = list(b = list(c = 1024)))
+
+x[[c("a", "b", "c")]]
+# [1] 1024
+
+x[["a"]][["b"]][["c"]]  # same
+# [1] 1024
+```
+
+
+### Simplifing vs Preserving
+|                | Simplifying          | Simplifying behavor                                                                | Preserving                               |
+|----------------|----------------------|------------------------------------------------------------------------------------|------------------------------------------|
+| vector         | `x[[1]]`             | removes names.                                                                     | `x[1]`                                   |
+| list           | `x[[1]]`             |                                                                                    | `x[1]`                                   |
+| factor         | `x[1:4, drop=T]`     | drops any unused levels.                                                           | `x[1:4]`                                 |
+| Matrix & Array | `x[1, ]` or `x[, 1]` | if any of the dimensions has length 1, drops that dimension.                       | `x[1, , drop = F]` or `x[, 1, drop = F]` |
+| data.frame     | `x[[1]]` or `x[,1]`  | if output is a single column, returns a vector instead of a one-column data frame. | `x[, 1, drop = F]` or `x[1]`             |
+| | | | | 
+
+
+
+### `$` vs `[[`
+`$` is a shorthand operator, where `x$y` is equivalent to `x[["y", exact = FALSE]]`.
+
+One common mistake with `$` is to try and use it when you have the name of a column stored in a variable:
+```{r}
+var <- "cyl"
+
+# Doesn't work - mtcars$var translated to mtcars[["var"]]
+mtcars$var
+# NULL
+
+mtcars[[var]]
+# [1] 6 6 4 6 8 6 8 4 4 6 6 8 8 8 8 8 8 4 4 4 4 8 8 8 8 4 4 4 8 6 8 4
+```
+
+Another difference between `$` and `[[`. **`$` does partial matching:**
+```{r}
+x <- list(abc = 1)
+x$a
+# [1] 1
+x[["a"]]
+# NULL
+```
+
+See R documentation, type `?Extract`:
+
+``` 
+x[i]
+x[i, j, ... , drop = TRUE]
+x[[i, exact = TRUE]]
+x[[i, j, ..., exact = TRUE]]
+x$name
+getElement(object, name)
+
+x[i] <- value
+x[i, j, ...] <- value
+x[[i]] <- value
+x$i <- value
+```
+
+### Missing/OOB index
+`[` and `[[` differ slightly in their behaviour when the index is out of bounds (OOB).
+
+```
+(pass)
+(table)   NA_real_  NULL  "<NA>"
+```
+
+
+## Subsetting and Assignment
+
+Subsetting with nothing can be useful in conjunction with assignment because it will preserve the original object class and structure.
+```{r}
+mtcars[] <- lapply(mtcars, as.integer)
+mtcars <- lapply(mtcars, as.integer)
+```
+
+
+
+## Appilications
+look-up table
+
+
+
+
+# Chapter 4 Vocabulary
+
+
+## The basics
+## Common data structures
+## Statistics
+## Working with R
+## I/O
+
+
+# Chapter 5 Style
+
+- Google's R style guide:   <https://google.github.io/styleguide/Rguide.xml>
+- Google's R style guide 中文翻译: <http://blog.csdn.net/suzyu12345/article/details/51286098>
+- package `formatR` *An Introduction to formatR*   <http://yihui.name/formatR/>
+
+## Notation and Naming
+
+### file names
+```
+predict_ad_revenue.R
+original_words_file.csv
+```
+### identifiers
+
+Google's R guide: Don't use underscores(_) or hyphens(-) in identifiers
+
+- `variable.name` : lower case letters, separated with dots. `variableName` is also accepted.
+- `FunctionName` : Initial capital letter and no dots.
+- `kConstantName` : like functions but with an initial `k`.
+
+Hadley style
+
+- Variable and function names should be lowercase. 
+- **Use an underscore** (_) to separate words within a name. 
+- variable names should be nouns while function names should be verbs. 
+- Strive for names that are concise and meaningful (this is not easy!).
+
+
+## Syntax
+
+- 80 characters one line
+- 缩进：两个空格键。 不要混用tab和空格。
+- 二元运算符前后都要有空格：`+ - * / = <- & |`. 
+- 函数传参数时`=`前后的空格可有可无
+- 逗号后面一定要有空格。**注意: x[1, ]**
+- 花括号： 前括号不要独占一行，后括号总是独占一行，除非ifelse。
+- **Always begin the body of a block on a new line ?? **
+- 不用分号。
+
+```{r}
+# Always begin the body of a block on a new line.
+
+# Good:
+if (is.null(ylim))
+  ylim <- c(0, 0.06)
+
+# Bad ? 
+# (by Hadley) It’s ok to leave very short statements on the same line:
+if (y < 0 && debug) message("Y is negative")
+
+```
+
+
+## Organization
+
+### General Layout and Ordering
+
+1. 版权声明注释
+2. 作者信息注释
+3. 文件描述注释, 包括程序的用途, 输入和输出
+4. source() 和 library() 语句
+5. 函数定义
+6. 要执行的语句, 如果有的话 (例如, print, plot) 
+7. 单元测试应在另一个名为 原始的文件名_unittest.R 的独立文件中进行.
+
+
+### 定义函数
+
+- 先列出无默认值的参数, 再列有默认值的参数.
+- 允许每行写多个参数
+- 函数文档：一句话描述; Args(包括数据类型); Returns;
+
+例子：
+```{r}
+CalculateSampleCovariance <- function(x, y, verbose = TRUE) {
+  # Computes the sample covariance between two vectors.
+  #
+  # Args:
+  #   x: One of two vectors whose sample covariance is to be calculated.
+  #   y: The other vector. x and y must have the same length, greater than one,
+  #      with no missing values.
+  #   verbose: If TRUE, prints sample covariance; if not, not. Default is TRUE.
+  #
+  # Returns:
+  #   The sample covariance between x and y.
+  n <- length(x)
+  # Error handling
+  if (n <= 1 || n != length(y)) {
+    stop("Arguments x and y have different lengths: ",
+         length(x), " and ", length(y), ".")
+  }
+  if (TRUE %in% is.na(x) || TRUE %in% is.na(y)) {
+    stop(" Arguments x and y must not have missing values.")
+  }
+  covariance <- var(x, y)
+  if (verbose)
+    cat("Covariance = ", round(covariance, 4), ".\n", sep = "")
+  return(covariance)
+}
+```
+
+### Comment
+
+```{r}
+# Load data ---------------------------
+
+# Plot data ============================
+
+```
+
+
+
+
+
